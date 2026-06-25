@@ -1,0 +1,57 @@
+[
+  {
+    "date": "2026-06-23",
+    "homeTeam": "Colombia",
+    "awayTeam": "DR Congo",
+    "result": {
+      "homeGoals": 1,
+      "awayGoals": 0
+    },
+    "internationalOdds1x2": {
+      "homeWin": 1.5405,
+      "draw": 4.1,
+      "awayWin": 6.5
+    },
+    "source": {
+      "odds": "https://dknetwork.draftkings.com/2026/06/23/colombia-vs-dr-congo-prediction-pick-for-tuesday-6-23-26/",
+      "result": "https://www.theguardian.com/football/live/2026/jun/24/fifa-world-cup-2026-live-colombia-v-dr-congo-updates-col-vs-cod-group-k-match-score-latest"
+    }
+  },
+  {
+    "date": "2026-06-24",
+    "homeTeam": "Mexico",
+    "awayTeam": "Czechia",
+    "result": {
+      "homeGoals": 3,
+      "awayGoals": 0
+    },
+    "internationalOdds1x2": {
+      "homeWin": 2,
+      "draw": 3.4,
+      "awayWin": 3.9
+    },
+    "source": {
+      "odds": "https://dknetwork.draftkings.com/2026/06/19/opening-odds-for-czech-republic-vs-mexico-in-the-fifa-2026-world-cup/",
+      "result": "https://www.theguardian.com/football/live/2026/jun/24/czechia-v-mexico-world-cup-2026-live"
+    }
+  },
+  {
+    "date": "2026-06-24",
+    "homeTeam": "South Korea",
+    "awayTeam": "South Africa",
+    "result": {
+      "homeGoals": 0,
+      "awayGoals": 1
+    },
+    "internationalOdds1x2": {
+      "homeWin": 1.6667,
+      "draw": 3.8,
+      "awayWin": 5.5
+    },
+    "source": {
+      "odds": "https://amp.foxsports.com/stories/soccer/2026-world-cup-south-korea-south-africa-odds-prediction-picks",
+      "result": "https://www.theguardian.com/football/live/2026/jun/24/south-africa-v-south-korea-world-cup-2026-live"
+    }
+  }
+]
+

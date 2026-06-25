@@ -1,0 +1,33 @@
+{
+  "name": "w-cup-goal-engine",
+  "version": "0.1.0",
+  "description": "Market-calibrated football score simulation engine",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "w-cup-goal-engine": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "debug:recent": "npm run build && node scripts/debug-recent-match.mjs",
+    "test": "npm run build && node --test tests/engine.test.mjs",
+    "simulate": "npm run build && node dist/cli.js"
+  },
+  "keywords": [
+    "football",
+    "poisson",
+    "monte-carlo",
+    "odds"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.8.0"
+  }
+}

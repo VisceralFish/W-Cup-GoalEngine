@@ -1,0 +1,29 @@
+{
+  "match": {
+    "homeTeam": "Germany",
+    "awayTeam": "Ecuador",
+    "stage": "group",
+    "groupRound": 3
+  },
+  "markets": {
+    "lottery": {
+      "odds1x2": {
+        "homeWin": 1.45,
+        "draw": 4.1,
+        "awayWin": 6.2
+      }
+    },
+    "international": {
+      "odds1x2": {
+        "homeWin": 1.5,
+        "draw": 4,
+        "awayWin": 6
+      }
+    }
+  },
+  "simulation": {
+    "simulations": 10000,
+    "seed": 42
+  }
+}
+
