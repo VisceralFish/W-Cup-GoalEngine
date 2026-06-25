@@ -8,17 +8,79 @@
   "markets": {
     "lottery": {
       "odds1x2": {
-        "homeWin": 1.45,
-        "draw": 4.1,
-        "awayWin": 6.2
+        "homeWin": 1.55,
+        "draw": 4.2,
+        "awayWin": 8
+      },
+      "correctScore": {
+        "0-0": 13,
+        "1-0": 7.5,
+        "2-0": 8.5,
+        "2-1": 10,
+        "1-1": 10.5,
+        "0-1": 20,
+        "other": 3.2
+      },
+      "totalGoals": {
+        "0": 13,
+        "1": 5,
+        "2": 3.5,
+        "3": 4,
+        "4": 7,
+        "5": 12,
+        "6": 20,
+        "7+": 30
       }
     },
     "international": {
       "odds1x2": {
-        "homeWin": 1.5,
-        "draw": 4,
-        "awayWin": 6
+        "homeWin": 1.7,
+        "draw": 3.8,
+        "awayWin": 5.5
+      },
+      "correctScore": {
+        "0-0": 11,
+        "1-0": 6.5,
+        "2-0": 8,
+        "2-1": 9,
+        "1-1": 7.5,
+        "0-1": 12,
+        "other": 3
+      },
+      "totalGoals": {
+        "0": 11,
+        "1": 4.5,
+        "2": 3.2,
+        "3": 3.8,
+        "4": 6.5,
+        "5": 11,
+        "6": 18,
+        "7+": 28
+      },
+      "overUnder": {
+        "line": 2.5,
+        "over": 2.05,
+        "under": 1.8
+      },
+      "halfTime1x2": {
+        "homeWin": 2.25,
+        "draw": 2.1,
+        "awayWin": 5.5
       }
+    }
+  },
+  "context": {
+    "motivation": {
+      "homeAcceptDraw": true,
+      "awayNeedWin": true
+    },
+    "teamCondition": {
+      "homeAttackMultiplier": 1.05,
+      "awayAttackMultiplier": 0.95,
+      "homeDefenseMultiplier": 1.05,
+      "awayDefenseMultiplier": 0.95,
+      "homeFinishingMultiplier": 1.03,
+      "awayFinishingMultiplier": 0.98
     }
   },
   "simulation": {
@@ -26,4 +88,3 @@
     "seed": 42
   }
 }
-
