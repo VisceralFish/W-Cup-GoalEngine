@@ -1,6 +1,5 @@
 import type {
   FavoriteSide,
-  Motivation,
   NormalizedMarket,
   PhaseShape,
   StateReactionProfile,
@@ -23,7 +22,6 @@ const PHASE_WEIGHTS: Record<
 export const DEFAULT_STATE_REACTION: StateReactionProfile = {
   favoriteTrailingBoost: 1.2,
   underdogLeadingDefense: 0.85,
-  drawLateRiskBoost: 1.15,
   leaderSlowdown: 0.92,
   opponentCounterBoost: 1.08,
 };
@@ -38,18 +36,13 @@ export function determineFavorite(market: NormalizedMarket): FavoriteSide {
 
 export function inferPhaseShape(options: {
   market: NormalizedMarket;
-  motivation: Motivation;
   favorite: FavoriteSide;
   lambdaTotal: number;
   override?: PhaseShape;
 }): PhaseShape {
   if (options.override !== undefined) return options.override;
 
-  const { market, motivation, favorite, lambdaTotal } = options;
-  if (motivation.homeNeedWin && motivation.awayNeedWin) return "chaotic";
-  if (motivation.homeAcceptDraw && motivation.awayAcceptDraw) {
-    return "low_first_half";
-  }
+  const { market, favorite, lambdaTotal } = options;
   if (market.overUnder !== null && market.overUnder.over >= 0.58) {
     return "chaotic";
   }
@@ -117,4 +110,3 @@ export function resolveStateReaction(
   }
   return profile;
 }
-

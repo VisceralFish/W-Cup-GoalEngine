@@ -70,17 +70,9 @@
     }
   },
   "context": {
-    "motivation": {
-      "homeAcceptDraw": true,
-      "awayNeedWin": true
-    },
-    "teamCondition": {
-      "homeAttackMultiplier": 1.05,
-      "awayAttackMultiplier": 0.95,
-      "homeDefenseMultiplier": 1.05,
-      "awayDefenseMultiplier": 0.95,
-      "homeFinishingMultiplier": 1.03,
-      "awayFinishingMultiplier": 0.98
+    "qualificationContext": {
+      "homeTarget": "draw_or_better",
+      "awayTarget": "win"
     }
   },
   "simulation": {

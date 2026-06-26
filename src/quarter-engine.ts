@@ -1,8 +1,9 @@
-import { samplePoisson } from "./poisson.js";
+import { qualificationMultipliers } from "./qualification-reaction.js";
 import type {
   FavoriteSide,
-  Motivation,
+  QualificationReactionProfile,
   Quarter,
+  ResolvedQualificationContext,
   StateReactionProfile,
   TeamSide,
 } from "./types.js";
@@ -68,7 +69,8 @@ function applyStateReaction(options: {
   homeLambda: number;
   awayLambda: number;
   favorite: FavoriteSide;
-  motivation: Motivation;
+  qualificationContext: ResolvedQualificationContext;
+  qualificationReactionProfile: QualificationReactionProfile;
   profile: StateReactionProfile;
 }): { homeLambda: number; awayLambda: number } {
   let { homeLambda, awayLambda } = options;
@@ -77,7 +79,8 @@ function applyStateReaction(options: {
     homeGoals,
     awayGoals,
     favorite,
-    motivation,
+    qualificationContext,
+    qualificationReactionProfile,
     profile,
   } = options;
   const underdog = underdogOf(favorite);
@@ -103,20 +106,26 @@ function applyStateReaction(options: {
     }
   }
 
-  if (quarterIndex === 3 && homeGoals === awayGoals) {
-    if (motivation.homeNeedWin) {
-      homeLambda *= profile.drawLateRiskBoost;
-      awayLambda *= profile.opponentCounterBoost;
-    }
-    if (motivation.awayNeedWin) {
-      awayLambda *= profile.drawLateRiskBoost;
-      homeLambda *= profile.opponentCounterBoost;
-    }
-    if (motivation.homeAcceptDraw && motivation.awayAcceptDraw) {
-      homeLambda *= 0.85;
-      awayLambda *= 0.85;
-    }
-  }
+  const homeQualification = qualificationMultipliers({
+    side: "home",
+    quarterIndex,
+    homeGoals,
+    awayGoals,
+    context: qualificationContext,
+    profile: qualificationReactionProfile,
+  });
+  const awayQualification = qualificationMultipliers({
+    side: "away",
+    quarterIndex,
+    homeGoals,
+    awayGoals,
+    context: qualificationContext,
+    profile: qualificationReactionProfile,
+  });
+  homeLambda *=
+    homeQualification.ownAttack * awayQualification.opponentAttack;
+  awayLambda *=
+    awayQualification.ownAttack * homeQualification.opponentAttack;
 
   return { homeLambda, awayLambda };
 }
@@ -125,7 +134,8 @@ export function simulateQuarterMatch(options: {
   homeQuarterLambda: [number, number, number, number];
   awayQuarterLambda: [number, number, number, number];
   favorite: FavoriteSide;
-  motivation: Motivation;
+  qualificationContext: ResolvedQualificationContext;
+  qualificationReactionProfile: QualificationReactionProfile;
   stateReactionProfile: StateReactionProfile;
   random: () => number;
 }): SimulatedMatch {
@@ -143,55 +153,56 @@ export function simulateQuarterMatch(options: {
   const underdog = underdogOf(options.favorite);
 
   for (let index = 0; index < QUARTERS.length; index += 1) {
-    const adjusted = applyStateReaction({
-      quarterIndex: index,
-      homeGoals,
-      awayGoals,
-      homeLambda: options.homeQuarterLambda[index]!,
-      awayLambda: options.awayQuarterLambda[index]!,
-      favorite: options.favorite,
-      motivation: options.motivation,
-      profile: options.stateReactionProfile,
-    });
-    const quarterHomeGoals = samplePoisson(
-      adjusted.homeLambda,
-      options.random,
-    );
-    const quarterAwayGoals = samplePoisson(
-      adjusted.awayLambda,
-      options.random,
-    );
+    let quarterHomeGoals = 0;
+    let quarterAwayGoals = 0;
+    let remainingQuarter = 1;
+
+    while (remainingQuarter > 0) {
+      const adjusted = applyStateReaction({
+        quarterIndex: index,
+        homeGoals,
+        awayGoals,
+        homeLambda: options.homeQuarterLambda[index]!,
+        awayLambda: options.awayQuarterLambda[index]!,
+        favorite: options.favorite,
+        qualificationContext: options.qualificationContext,
+        qualificationReactionProfile: options.qualificationReactionProfile,
+        profile: options.stateReactionProfile,
+      });
+      const totalLambda = adjusted.homeLambda + adjusted.awayLambda;
+      if (totalLambda <= 0) break;
+
+      const waitingTime =
+        -Math.log(Math.max(options.random(), Number.MIN_VALUE)) / totalLambda;
+      if (waitingTime > remainingQuarter) break;
+      remainingQuarter -= waitingTime;
+
+      const scoringSide: TeamSide =
+        options.random() < adjusted.homeLambda / totalLambda
+          ? "home"
+          : "away";
+      if (firstGoal === null) {
+        firstGoal = { side: scoringSide, quarter: QUARTERS[index]! };
+      }
+      if (scoringSide === "home") {
+        quarterHomeGoals += 1;
+        homeGoals += 1;
+      } else {
+        quarterAwayGoals += 1;
+        awayGoals += 1;
+      }
+      if (homeGoals < awayGoals) homeTrailed = true;
+      if (awayGoals < homeGoals) awayTrailed = true;
+      if (underdog !== "none" && isLeading(underdog, homeGoals, awayGoals)) {
+        underdogLed = true;
+        if (index <= 1) underdogEarlyLead = true;
+      }
+    }
+
     quarterScores.push({
       homeGoals: quarterHomeGoals,
       awayGoals: quarterAwayGoals,
     });
-
-    if (
-      firstGoal === null &&
-      (quarterHomeGoals > 0 || quarterAwayGoals > 0)
-    ) {
-      let side: TeamSide;
-      if (quarterHomeGoals === 0) side = "away";
-      else if (quarterAwayGoals === 0) side = "home";
-      else {
-        side =
-          options.random() <
-          quarterHomeGoals / (quarterHomeGoals + quarterAwayGoals)
-            ? "home"
-            : "away";
-      }
-      firstGoal = { side, quarter: QUARTERS[index]! };
-    }
-
-    homeGoals += quarterHomeGoals;
-    awayGoals += quarterAwayGoals;
-    if (homeGoals < awayGoals) homeTrailed = true;
-    if (awayGoals < homeGoals) awayTrailed = true;
-
-    if (underdog !== "none" && isLeading(underdog, homeGoals, awayGoals)) {
-      underdogLed = true;
-      if (index <= 1) underdogEarlyLead = true;
-    }
 
     if (index === 1) {
       halfTimeHomeGoals = homeGoals;
@@ -241,8 +252,8 @@ export function simulateQuarterMatch(options: {
   if (
     scoreAfterQ3.homeGoals === scoreAfterQ3.awayGoals &&
     homeGoals === awayGoals &&
-    options.motivation.homeAcceptDraw &&
-    options.motivation.awayAcceptDraw
+    options.qualificationContext.homeTarget === "draw_or_better" &&
+    options.qualificationContext.awayTarget === "draw_or_better"
   ) {
     paths.push("draw_lock");
   }
@@ -268,4 +279,3 @@ export function simulateQuarterMatch(options: {
     paths,
   };
 }
-

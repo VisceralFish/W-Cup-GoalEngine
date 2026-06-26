@@ -16,9 +16,10 @@ export {
 } from "./poisson.js";
 export { createSeededRandom } from "./random.js";
 export {
-  applyTeamCondition,
-  resolveTeamCondition,
-} from "./team-condition.js";
+  qualificationMultipliers,
+  resolveQualificationContext,
+  resolveQualificationReactionProfile,
+} from "./qualification-reaction.js";
 export type {
   CorrectScoreOdds,
   HalfTime1x2Odds,
@@ -31,12 +32,14 @@ export type {
   PathAnalysis,
   PhaseShape,
   Probabilities1x2,
+  QualificationContext,
+  QualificationReactionProfile,
+  QualificationTarget,
   QuarterGoalDistribution,
   QuarterGoalEngineInput,
   QuarterGoalEngineOutput,
-  ResolvedTeamCondition,
+  ResolvedQualificationContext,
   ScoreProbability,
   StateReactionProfile,
-  TeamCondition,
   TotalGoalsOdds,
 } from "./types.js";

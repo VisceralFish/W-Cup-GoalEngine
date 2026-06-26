@@ -13,11 +13,11 @@ import {
   resolveStateReaction,
 } from "./phase-shape.js";
 import { simulateQuarterMatch } from "./quarter-engine.js";
-import { createSeededRandom } from "./random.js";
 import {
-  applyTeamCondition,
-  resolveTeamCondition,
-} from "./team-condition.js";
+  resolveQualificationContext,
+  resolveQualificationReactionProfile,
+} from "./qualification-reaction.js";
+import { createSeededRandom } from "./random.js";
 import type {
   NormalizedMarket,
   Quarter,
@@ -147,20 +147,19 @@ export function simulate(
   const lottery = normalizeMarket(input.markets.lottery);
   const international = normalizeMarket(input.markets.international);
   const calibration = calibrateMarkets(international);
-  const teamCondition = resolveTeamCondition(input.context?.teamCondition);
-  const conditionedLambda = applyTeamCondition({
-    marketLambdaHome: calibration.lambdaHome,
-    marketLambdaAway: calibration.lambdaAway,
-    condition: teamCondition,
+  const qualification = resolveQualificationContext({
+    qualificationContext: input.context?.qualificationContext,
+    legacyMotivation: input.context?.motivation,
   });
+  const qualificationReactionProfile = resolveQualificationReactionProfile(
+    input.engine?.qualificationReaction,
+  );
   const quality = fitQuality(calibration.loss);
   const favorite = determineFavorite(international);
-  const motivation = input.context?.motivation ?? {};
   const phaseShape = inferPhaseShape({
     market: international,
-    motivation,
     favorite,
-    lambdaTotal: conditionedLambda.lambdaHome + conditionedLambda.lambdaAway,
+    lambdaTotal: calibration.lambdaHome + calibration.lambdaAway,
     ...(input.engine?.phaseShapeOverride === undefined
       ? {}
       : { override: input.engine.phaseShapeOverride }),
@@ -175,10 +174,10 @@ export function simulate(
     input.engine?.stateReaction,
   );
   const homeQuarterLambda = quarterWeights.home.map(
-    (weight) => conditionedLambda.lambdaHome * weight,
+    (weight) => calibration.lambdaHome * weight,
   ) as [number, number, number, number];
   const awayQuarterLambda = quarterWeights.away.map(
-    (weight) => conditionedLambda.lambdaAway * weight,
+    (weight) => calibration.lambdaAway * weight,
   ) as [number, number, number, number];
   const random =
     input.simulation.seed === undefined
@@ -207,7 +206,8 @@ export function simulate(
       homeQuarterLambda,
       awayQuarterLambda,
       favorite,
-      motivation,
+      qualificationContext: qualification.context,
+      qualificationReactionProfile,
       stateReactionProfile,
       random,
     });
@@ -300,8 +300,10 @@ export function simulate(
   if (quality === "low") {
     warnings.push("联合市场拟合误差较高，不输出高置信度错误定价候选。");
   }
-  if (Object.values(teamCondition).some((multiplier) => multiplier !== 1)) {
-    warnings.push("球队状态系数已应用，模拟结果不再是纯市场校准基线。");
+  if (qualification.usedLegacyMotivation) {
+    warnings.push(
+      "context.motivation 已兼容映射；请迁移到 qualificationContext。",
+    );
   }
 
   return {
@@ -310,13 +312,9 @@ export function simulate(
       awayTeam: input.match.awayTeam,
     },
     derivedParams: {
-      lambdaHome: conditionedLambda.lambdaHome,
-      lambdaAway: conditionedLambda.lambdaAway,
-      lambdaTotal: conditionedLambda.lambdaHome + conditionedLambda.lambdaAway,
-      marketLambdaHome: calibration.lambdaHome,
-      marketLambdaAway: calibration.lambdaAway,
-      marketLambdaTotal: calibration.lambdaHome + calibration.lambdaAway,
-      teamCondition,
+      lambdaHome: calibration.lambdaHome,
+      lambdaAway: calibration.lambdaAway,
+      lambdaTotal: calibration.lambdaHome + calibration.lambdaAway,
       tempo: calibration.tempo,
       phaseShape,
       favorite,
@@ -325,6 +323,8 @@ export function simulate(
       homeQuarterLambda,
       awayQuarterLambda,
       stateReactionProfile,
+      qualificationContext: qualification.context,
+      qualificationReactionProfile,
       fitLoss: calibration.loss,
     },
     marketProbabilities: {

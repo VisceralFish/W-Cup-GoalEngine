@@ -50,28 +50,36 @@ export type Motivation = {
   awayAcceptDraw?: boolean;
 };
 
-export type TeamCondition = {
-  homeAttackMultiplier?: number;
-  awayAttackMultiplier?: number;
-  homeDefenseMultiplier?: number;
-  awayDefenseMultiplier?: number;
-  homeFinishingMultiplier?: number;
-  awayFinishingMultiplier?: number;
+export type QualificationTarget =
+  | "win"
+  | "draw_or_better"
+  | "goal_difference"
+  | "none";
+
+export type QualificationContext = {
+  homeTarget?: QualificationTarget;
+  awayTarget?: QualificationTarget;
+  homeRequiredGoalDifference?: number;
+  awayRequiredGoalDifference?: number;
 };
 
-export type ResolvedTeamCondition = {
-  homeAttackMultiplier: number;
-  awayAttackMultiplier: number;
-  homeDefenseMultiplier: number;
-  awayDefenseMultiplier: number;
-  homeFinishingMultiplier: number;
-  awayFinishingMultiplier: number;
+export type ResolvedQualificationContext = {
+  homeTarget: QualificationTarget;
+  awayTarget: QualificationTarget;
+  homeRequiredGoalDifference: number | null;
+  awayRequiredGoalDifference: number | null;
+};
+
+export type QualificationReactionProfile = {
+  attackResponse: number;
+  defensiveExposure: number;
+  counterExposure: number;
+  targetProtection: number;
 };
 
 export type StateReactionProfile = {
   favoriteTrailingBoost: number;
   underdogLeadingDefense: number;
-  drawLateRiskBoost: number;
   leaderSlowdown: number;
   opponentCounterBoost: number;
 };
@@ -88,8 +96,9 @@ export type QuarterGoalEngineInput = {
     international: MarketOddsInput;
   };
   context?: {
+    qualificationContext?: QualificationContext;
+    /** @deprecated Use qualificationContext. */
     motivation?: Motivation;
-    teamCondition?: TeamCondition;
   };
   engine?: {
     phaseShapeOverride?: PhaseShape;
@@ -98,6 +107,7 @@ export type QuarterGoalEngineInput = {
       away: [number, number, number, number];
     };
     stateReaction?: Partial<StateReactionProfile>;
+    qualificationReaction?: Partial<QualificationReactionProfile>;
   };
   simulation: {
     simulations: number;
@@ -186,10 +196,6 @@ export type QuarterGoalEngineOutput = {
     lambdaHome: number;
     lambdaAway: number;
     lambdaTotal: number;
-    marketLambdaHome: number;
-    marketLambdaAway: number;
-    marketLambdaTotal: number;
-    teamCondition: ResolvedTeamCondition;
     tempo: number;
     phaseShape: PhaseShape;
     favorite: FavoriteSide;
@@ -198,6 +204,8 @@ export type QuarterGoalEngineOutput = {
     homeQuarterLambda: [number, number, number, number];
     awayQuarterLambda: [number, number, number, number];
     stateReactionProfile: StateReactionProfile;
+    qualificationContext: ResolvedQualificationContext;
+    qualificationReactionProfile: QualificationReactionProfile;
     fitLoss: number;
   };
   marketProbabilities: {

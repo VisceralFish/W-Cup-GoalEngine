@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  applyTeamCondition,
   calibrateMarkets,
   fitLambdas,
   normalizeMarket,
   normalizeOdds1x2,
+  qualificationMultipliers,
+  resolveQualificationContext,
   simulate,
 } from "../dist/index.js";
 
@@ -86,9 +87,9 @@ const advancedInput = {
     },
   },
   context: {
-    motivation: {
-      homeAcceptDraw: true,
-      awayNeedWin: true,
+    qualificationContext: {
+      homeTarget: "draw_or_better",
+      awayTarget: "win",
     },
   },
   simulation: {
@@ -185,22 +186,25 @@ test("produces quarter distributions and normalized quarter weights", () => {
   assert.ok(result.simulationSummary.halfTime.drawProb > 0);
 });
 
-test("applies the Q4 draw lock when both teams accept a draw", () => {
+test("raises draw probability when both teams target draw-or-better", () => {
   const accepting = structuredClone(advancedInput);
   accepting.engine = { phaseShapeOverride: "balanced" };
-  accepting.context.motivation = {
-    homeAcceptDraw: true,
-    awayAcceptDraw: true,
+  accepting.context.qualificationContext = {
+    homeTarget: "draw_or_better",
+    awayTarget: "draw_or_better",
   };
   const neutral = structuredClone(accepting);
-  neutral.context.motivation = {};
+  neutral.context.qualificationContext = {
+    homeTarget: "none",
+    awayTarget: "none",
+  };
 
   const acceptingResult = simulate(accepting);
   const neutralResult = simulate(neutral);
 
   assert.ok(
-    acceptingResult.quarterGoalDistribution.Q4.expectedTotalGoals <
-      neutralResult.quarterGoalDistribution.Q4.expectedTotalGoals,
+    acceptingResult.simulationSummary.fullTime.drawProb >
+      neutralResult.simulationSummary.fullTime.drawProb,
   );
 });
 
@@ -221,71 +225,176 @@ test("reports upset paths and positive lottery mispricing candidates", () => {
   );
 });
 
-test("applies attack, defense, and finishing multipliers to market lambdas", () => {
-  const result = applyTeamCondition({
-    marketLambdaHome: 1.5,
-    marketLambdaAway: 1,
-    condition: {
-      homeAttackMultiplier: 1.1,
-      awayAttackMultiplier: 0.9,
-      homeDefenseMultiplier: 1.2,
-      awayDefenseMultiplier: 0.8,
-      homeFinishingMultiplier: 1.05,
-      awayFinishingMultiplier: 0.95,
+test("raises Q4 risk when a team still needs to win", () => {
+  const result = qualificationMultipliers({
+    side: "home",
+    quarterIndex: 3,
+    homeGoals: 1,
+    awayGoals: 1,
+    context: {
+      homeTarget: "win",
+      awayTarget: "none",
+      homeRequiredGoalDifference: null,
+      awayRequiredGoalDifference: null,
+    },
+    profile: {
+      attackResponse: 0.3,
+      defensiveExposure: 0.16,
+      counterExposure: 0.1,
+      targetProtection: 0.15,
     },
   });
 
-  assert.ok(Math.abs(result.lambdaHome - 2.165625) < 1e-12);
-  assert.ok(Math.abs(result.lambdaAway - 0.7125) < 1e-12);
+  assert.ok(Math.abs(result.ownAttack - 1.225) < 1e-12);
+  assert.ok(result.opponentAttack > 1.2);
+  assert.equal(result.urgency, 0.75);
+  assert.equal(result.targetAchieved, false);
 });
 
-test("team conditions change expected goals in the intended direction", () => {
-  const baseline = structuredClone(advancedInput);
-  baseline.engine = { phaseShapeOverride: "balanced" };
-  const conditioned = structuredClone(baseline);
-  conditioned.context.teamCondition = {
-    homeAttackMultiplier: 1.15,
-    homeFinishingMultiplier: 1.1,
-    awayDefenseMultiplier: 0.9,
-    awayAttackMultiplier: 0.9,
-    awayFinishingMultiplier: 0.95,
-    homeDefenseMultiplier: 1.1,
+test("does not adjust the market baseline before the first match event", () => {
+  const result = qualificationMultipliers({
+    side: "home",
+    quarterIndex: 0,
+    homeGoals: 0,
+    awayGoals: 0,
+    context: {
+      homeTarget: "win",
+      awayTarget: "draw_or_better",
+      homeRequiredGoalDifference: null,
+      awayRequiredGoalDifference: null,
+    },
+    profile: {
+      attackResponse: 0.3,
+      defensiveExposure: 0.16,
+      counterExposure: 0.1,
+      targetProtection: 0.15,
+    },
+  });
+
+  assert.equal(result.ownAttack, 1);
+  assert.equal(result.opponentAttack, 1);
+});
+
+test("protects a result that already satisfies draw-or-better", () => {
+  const result = qualificationMultipliers({
+    side: "away",
+    quarterIndex: 3,
+    homeGoals: 1,
+    awayGoals: 1,
+    context: {
+      homeTarget: "none",
+      awayTarget: "draw_or_better",
+      homeRequiredGoalDifference: null,
+      awayRequiredGoalDifference: null,
+    },
+    profile: {
+      attackResponse: 0.3,
+      defensiveExposure: 0.16,
+      counterExposure: 0.1,
+      targetProtection: 0.15,
+    },
+  });
+
+  assert.equal(result.ownAttack, 0.85);
+  assert.equal(result.opponentAttack, 0.925);
+  assert.equal(result.targetAchieved, true);
+});
+
+test("keeps market lambdas unchanged by qualification context", () => {
+  const neutral = structuredClone(advancedInput);
+  neutral.context.qualificationContext = {
+    homeTarget: "none",
+    awayTarget: "none",
+  };
+  const targeted = structuredClone(neutral);
+  targeted.context.qualificationContext = {
+    homeTarget: "goal_difference",
+    homeRequiredGoalDifference: 2,
+    awayTarget: "draw_or_better",
   };
 
-  const baselineResult = simulate(baseline);
-  const conditionedResult = simulate(conditioned);
+  const neutralResult = simulate(neutral);
+  const targetedResult = simulate(targeted);
 
-  assert.ok(
-    conditionedResult.derivedParams.lambdaHome >
-      baselineResult.derivedParams.lambdaHome,
-  );
-  assert.ok(
-    conditionedResult.derivedParams.lambdaAway <
-      baselineResult.derivedParams.lambdaAway,
-  );
-  assert.ok(
-    conditionedResult.simulationSummary.fullTime.expectedHomeGoals >
-      baselineResult.simulationSummary.fullTime.expectedHomeGoals,
-  );
-  assert.ok(
-    conditionedResult.simulationSummary.fullTime.expectedAwayGoals <
-      baselineResult.simulationSummary.fullTime.expectedAwayGoals,
+  assert.equal(
+    targetedResult.derivedParams.lambdaHome,
+    neutralResult.derivedParams.lambdaHome,
   );
   assert.equal(
-    conditionedResult.derivedParams.marketLambdaHome,
-    baselineResult.derivedParams.marketLambdaHome,
+    targetedResult.derivedParams.lambdaAway,
+    neutralResult.derivedParams.lambdaAway,
   );
-  assert.match(
-    conditionedResult.diagnostics.warnings.join(" "),
-    /球队状态系数已应用/,
+  assert.deepEqual(targetedResult.derivedParams.qualificationContext, {
+    homeTarget: "goal_difference",
+    awayTarget: "draw_or_better",
+    homeRequiredGoalDifference: 2,
+    awayRequiredGoalDifference: null,
+  });
+});
+
+test("goal-difference urgency persists until the required margin is reached", () => {
+  const context = {
+    homeTarget: "goal_difference",
+    awayTarget: "none",
+    homeRequiredGoalDifference: 2,
+    awayRequiredGoalDifference: null,
+  };
+  const profile = {
+    attackResponse: 0.3,
+    defensiveExposure: 0.16,
+    counterExposure: 0.1,
+    targetProtection: 0.15,
+  };
+  const short = qualificationMultipliers({
+    side: "home",
+    quarterIndex: 3,
+    homeGoals: 1,
+    awayGoals: 0,
+    context,
+    profile,
+  });
+  const achieved = qualificationMultipliers({
+    side: "home",
+    quarterIndex: 3,
+    homeGoals: 2,
+    awayGoals: 0,
+    context,
+    profile,
+  });
+
+  assert.equal(short.urgency, 0.5);
+  assert.equal(short.ownAttack, 1.15);
+  assert.equal(achieved.targetAchieved, true);
+  assert.equal(achieved.ownAttack, 0.85);
+});
+
+test("rejects goal-difference targets without a positive required margin", () => {
+  const invalid = structuredClone(advancedInput);
+  invalid.context.qualificationContext = {
+    homeTarget: "goal_difference",
+  };
+
+  assert.throws(
+    () => simulate(invalid),
+    /homeRequiredGoalDifference.*positive integer/,
   );
 });
 
-test("rejects non-positive team condition multipliers", () => {
-  const invalid = structuredClone(advancedInput);
-  invalid.context.teamCondition = {
-    homeAttackMultiplier: 0,
+test("maps legacy motivation to qualification targets with a warning", () => {
+  const legacy = structuredClone(advancedInput);
+  delete legacy.context.qualificationContext;
+  legacy.context.motivation = {
+    homeNeedWin: true,
+    awayAcceptDraw: true,
   };
 
-  assert.throws(() => simulate(invalid), /homeAttackMultiplier.*greater than 0/);
+  const resolved = resolveQualificationContext({
+    qualificationContext: undefined,
+    legacyMotivation: legacy.context.motivation,
+  });
+  const result = simulate(legacy);
+
+  assert.equal(resolved.context.homeTarget, "win");
+  assert.equal(resolved.context.awayTarget, "draw_or_better");
+  assert.match(result.diagnostics.warnings.join(" "), /兼容映射/);
 });

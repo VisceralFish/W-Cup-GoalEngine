@@ -1037,25 +1037,103 @@ opponentCounterBoost = 1.08
 ### 10.4.5 平局末段冒险
 
 ```text
-如果 Q4 开始时平局且至少一方必须赢：
-λ_need_win_team_Q4 *= drawLateRiskBoost
-λ_opponent_Q4 *= opponentCounterBoost
-```
-
-默认：
-
-```text
-drawLateRiskBoost = 1.15
+旧版语义：Q4 平局且至少一方必须赢时提高风险。
+当前实现：由 10.5 的 urgency × timePressure 动态公式统一处理。
 ```
 
 ### 10.4.6 双方接受平局
 
 ```text
-如果 Q4 开始时平局且双方都接受平局：
-λ_home_Q4 *= 0.85
-λ_away_Q4 *= 0.85
-draw_lock_factor += 0.10
+旧版语义：Q4 平局且双方接受平局时降低主动进攻。
+当前实现：由 10.5 的目标达成保护公式统一处理。
 ```
+
+## 10.5 出线目标动态反应
+
+赛前伤停、轮换、近期状态等公开信息默认已经反映在最新赔率中，不再通过赛前球队状态倍率重复修正基础 `λ`。基础 `λ_home / λ_away` 始终保持市场联合校准结果。
+
+Q1 开球时使用纯市场基线。出线目标在每次进球、丢球、扳平以及节段切换后，根据当前比分和剩余时间动态计算。
+
+每节内部使用事件驱动模拟：
+
+```text
+等待下一粒进球
+→ 判断进球方
+→ 更新比分与出线状态
+→ 立即重算双方进球强度
+→ 继续模拟本节剩余时间
+```
+
+```ts
+type QualificationTarget =
+  | "win"
+  | "draw_or_better"
+  | "goal_difference"
+  | "none";
+
+type QualificationContext = {
+  homeTarget?: QualificationTarget;
+  awayTarget?: QualificationTarget;
+  homeRequiredGoalDifference?: number;
+  awayRequiredGoalDifference?: number;
+};
+```
+
+时间压力：
+
+```text
+Q1 = 0.15
+Q2 = 0.35
+Q3 = 0.65
+Q4 = 1.00
+```
+
+未达到目标时：
+
+```text
+risk = urgency × timePressure
+
+ownAttack =
+  1 + risk × attackResponse
+
+opponentAttack =
+  (1 + risk × defensiveExposure)
+  × (1 + risk × counterExposure)
+```
+
+默认参数：
+
+```text
+attackResponse = 0.30
+defensiveExposure = 0.16
+counterExposure = 0.10
+targetProtection = 0.15
+```
+
+达到目标时：
+
+```text
+ownAttack =
+  1 - timePressure × targetProtection
+
+opponentAttack =
+  1 - timePressure × targetProtection × 0.5
+```
+
+状态必须在 Q1、Q2、Q3、Q4 开始时重新计算。例如：
+
+```text
+必须赢的球队在 Q4 平局：
+提高自身进攻，同时增加防守暴露和对手反击概率。
+
+平局即可的球队在 Q4 平局：
+降低主动进攻并保护当前结果。
+
+必须净胜两球但只领先一球：
+目标仍未达成，继续增加进攻风险。
+```
+
+旧的 `homeNeedWin / awayNeedWin / homeAcceptDraw / awayAcceptDraw` 仅作为兼容输入，内部映射到 `QualificationContext`。
 
 ---
 
